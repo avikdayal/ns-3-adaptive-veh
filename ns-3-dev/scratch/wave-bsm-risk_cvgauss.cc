@@ -1989,7 +1989,7 @@ VanetRoutingExperiment::CheckThroughput ()
       NS_ASSERT(mob);
       Vector posm = mob->GetPosition (); // Get position
       Vector vel = mob->GetVelocity (); // Get velocity
-      if(posm.x > ROAD_LENGTH_NUM){
+      /*if(posm.x > ROAD_LENGTH_NUM){
           mob->SetPosition(Vector(posm.x - ROAD_LENGTH_NUM, posm.y, posm.z));
           //mob->SetVelocity(velocities[i]);
           mob->SetVelocity(vel);
@@ -1999,7 +1999,7 @@ VanetRoutingExperiment::CheckThroughput ()
         }
       posm = mob->GetPosition (); // Get position
       vel = mob->GetVelocity (); // Get velocity
-      NS_ASSERT(mob);
+      NS_ASSERT(mob);*/
 
        std::cout << "debugline: " << Simulator::Now () << " Node: " << i <<" POS: x=" << posm.x << ", y=" << posm.y << ", z=" << posm.z << "; VEL:" << vel.x << ", y=" << vel.y << ", z=" << vel.z << " VEL_SET" << velocities[i] << std::endl;
     }
@@ -2341,7 +2341,7 @@ VanetRoutingExperiment::SetupAdhocMobilityNodes ()
       static int num_lanes=3;
       int lane_pos[3] = {0};
       int curr_lane =0;
-      double lane_y[]  = {2.0, 6.0, 8.0};
+      double lane_y[]  = {2.0, 6.0, 10.0};
 
       double veh_spacing=ROAD_LENGTH_NUM*num_lanes/m_adhocTxNodes.GetN();
       for(unsigned int i=0;i<m_adhocTxNodes.GetN(); i++){
@@ -2349,7 +2349,7 @@ VanetRoutingExperiment::SetupAdhocMobilityNodes ()
         Vector posm = mob->GetPosition (); // Get position
         double x = lane_pos[curr_lane];
         mob->SetPosition(Vector(x, lane_y[curr_lane], posm.y));
-        Vector node_vel=Vector(30+std::sqrt(16)*var->GetValue (), 0.0, 0.0);
+        Vector node_vel=Vector(30+std::sqrt(6)*var->GetValue (), 0.0, 0.0);
         //Vector node_vel=Vector(30+0.5*var->GetValue (), 0.0, 0.0);
         mob->SetVelocity(node_vel);
         velocities[i]=node_vel;
