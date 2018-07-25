@@ -35,10 +35,11 @@ NS_LOG_COMPONENT_DEFINE ("BsmApplication");
 // chnahe the followig values for experiment
 //#define ADAPTIVE_PRIO
 
-#define TTC_THRESH 5.0
-#define TTC_THRESH_UPPER 15.0
-#define CRASH_THRESHOLD 4.8
-#define PRIO_MANUEVER_THRESHOLD 5.0
+//#define TTC_THRESH 5.0
+//#define TTC_THRESH_UPPER 15.0
+//#define CRASH_THRESHOLD 4.6
+//#define PRIO_MANUEVER_THRESHOLD 5.0
+//#define PRIO_MANUEVER_THRESHOLD 4.96
 #define NUM_LANES 3
 
 namespace ns3 {
@@ -487,7 +488,7 @@ BsmApplication::GenerateWaveTraffic (Ptr<Socket> socket, uint32_t pktSize,
 
 						double priority_rx=GetAdaptivePriorityLevel(txNodeId,rxNodeId);
 						double ttc=GetTTC(txNodeId,rxNodeId);
-						if(priority_rx>=5.0){
+						if(priority_rx>=PRIO_MANUEVER_THRESHOLD){
 							Pi->AddNodeInRange(rxNodeId);
 							Pi->AddTTCInRange(rxNodeId, ttc);
 							Pi->AddDistInRange(rxNodeId, std::sqrt(distSq));
@@ -507,7 +508,7 @@ BsmApplication::GenerateWaveTraffic (Ptr<Socket> socket, uint32_t pktSize,
 								{
 									// we should expect dest node to receive broadcast pkta
 									// todo: index + base
-									if(priority>=5){
+									if(priority>=PRIO_MANUEVER_THRESHOLD){
 										m_waveBsmStats_hp->IncExpectedRxPktCount (index);
 										//pktInterval=MilliSeconds (50);
 										pktInterval=MilliSeconds (min_interval);
@@ -671,7 +672,7 @@ BsmApplication::GeneratePriorityWaveTraffic (Ptr<Socket> socket, uint32_t pktSiz
 
 						double priority_rx=GetAdaptivePriorityLevel(txNodeId,rxNodeId);
 						double ttc=GetTTC(txNodeId,rxNodeId);
-						if(priority_rx>=5.0){
+						if(priority_rx>=PRIO_MANUEVER_THRESHOLD){
 							Pi->AddNodeInRange(rxNodeId);
 							Pi->AddTTCInRange(rxNodeId, ttc);
 							Pi->AddDistInRange(rxNodeId, std::sqrt(distSq));
@@ -691,7 +692,7 @@ BsmApplication::GeneratePriorityWaveTraffic (Ptr<Socket> socket, uint32_t pktSiz
 								{
 									// we should expect dest node to receive broadcast pkta
 									// todo: index + base
-									if(priority>=5){
+									if(priority>=PRIO_MANUEVER_THRESHOLD){
 										m_waveBsmStats_hp->IncExpectedRxPktCount (index);
 										pkt_time = min_interval;
 										//pktInterval=MilliSeconds (min_interval);
@@ -700,7 +701,8 @@ BsmApplication::GeneratePriorityWaveTraffic (Ptr<Socket> socket, uint32_t pktSiz
 										m_waveBsmStats->IncExpectedRxPktCount (index);
 #ifdef ADAPTIVE_PRIO
 
-										pkt_time=max_interval+(max_interval - min_interval)/(max_priority - min_priority) -priority_rx * (max_interval - min_interval)/(max_priority- min_priority);
+										//pkt_time=max_interval+(max_interval - min_interval)/(max_priority - min_priority) -priority_rx * (max_interval - min_interval)/(max_priority- min_priority);
+										pkt_time=max_interval+(max_interval - min_interval - priority_rx * (max_interval - min_interval))/(max_priority- min_priority);
 										//pktInterval=MilliSeconds (pkt_time);
 #else
 										//pktInterval=MilliSeconds (min_interval);
@@ -901,8 +903,6 @@ double BsmApplication::GetAdaptivePriorityLevel(int sendingNodeId)
 	Ptr<MobilityModel> txPosition = txNode->GetObject<MobilityModel> ();
 	NS_ASSERT (txPosition != 0);
 	double priority=1;
-	double max_priority=5;
-	double min_priority=1;
 	int senderMoving = m_nodesMoving->at (txNodeId);
 	if (senderMoving == 0)
 		return priority;
@@ -917,53 +917,8 @@ double BsmApplication::GetAdaptivePriorityLevel(int sendingNodeId)
 			continue;
 		}
 
-		Ptr<MobilityModel> rxPosition = rxNode->GetObject<MobilityModel> ();
-		NS_ASSERT (rxPosition != 0);
-		double ttc;//time to collision
-		double ttc_thres;
-		double ttc_thres_upper;
-		ttc_thres=TTC_THRESH;
-		ttc_thres_upper=TTC_THRESH_UPPER;
-		// confirm that the receiving node
-		// has also started moving in the scenario
-		// if it has not started moving, then
-		// it is not a candidate to receive a packet
-		int receiverMoving = m_nodesMoving->at (rxNodeId);
-		if (receiverMoving != 1)
-		{
-			continue;
-		}
-		double distSq = MobilityHelper::GetDistanceSquaredBetween (txNode, rxNode);
-
-		ttc=GetTTC(txNodeId,rxNodeId);
-
-		Ptr<ConstantVelocityMobilityModel> mob_tx = txNode-> GetObject<ConstantVelocityMobilityModel>();
-		Ptr<ConstantVelocityMobilityModel> mob_rx = rxNode-> GetObject<ConstantVelocityMobilityModel>();
-		NS_ASSERT(mob_tx);
-		NS_ASSERT(mob_rx);
-		Vector posm_rx = mob_rx->GetPosition (); // Get position
-		Vector posm_tx = mob_tx->GetPosition (); // Get position
-    //Vector vel_rx = mob_rx->GetVelocity (); // Get position
-    Vector vel_tx = mob_tx->GetVelocity (); // Get position
-		if (distSq > 0.0)
-		{
-      if(std::abs(posm_rx.y-posm_tx.y)<m_lane_thres){
-        if(std::abs(posm_rx.x-posm_tx.x)/vel_tx.x< 1 && ttc>=1000){
-          priority=5;
-          return priority;
-        }
-      }
-			if ((ttc < ttc_thres) && (std::abs(posm_rx.y-posm_tx.y)<m_lane_thres)){
-				priority = 5;
-				return priority;
-			}
-			else if(ttc<ttc_thres_upper && (std::abs(posm_rx.y-posm_tx.y)<m_lane_thres)){
-				double c= min_priority+ttc_thres_upper*(max_priority - min_priority)/(ttc_thres_upper - ttc_thres);
-				double p=  c- (max_priority - min_priority)/(ttc_thres_upper - ttc_thres)*ttc;
-				if (p > priority)
-					priority = p;
-			}
-		}
+    double dist_prio = GetAdaptivePriorityLevel(sendingNodeId, rxNodeId);
+    priority = (priority > dist_prio) ? priority : dist_prio;
 	}
 	return priority;
 }
@@ -1040,46 +995,38 @@ double BsmApplication::GetAdaptivePriorityLevel(int sendingNodeId, int rxNodeId)
 
 double BsmApplication::GetTTC(int sendingNodeId, int rxNodeId)
 {
-	int txNodeId = sendingNodeId;
-	Ptr<Node> txNode = GetNode (txNodeId);
-	Ptr<MobilityModel> txPosition = txNode->GetObject<MobilityModel> ();
-	NS_ASSERT (txPosition != 0);
-	int senderMoving = m_nodesMoving->at (txNodeId);
-	double ttc=1000; //time to collision
-	if (rxNodeId == txNodeId || senderMoving ==0) {
-		return ttc;
-	}
+  int txNodeId = sendingNodeId;
+  Ptr<Node> txNode = GetNode (txNodeId);
+  Ptr<MobilityModel> txPosition = txNode->GetObject<MobilityModel> ();
+  NS_ASSERT (txPosition != 0);
+  int senderMoving = m_nodesMoving->at (txNodeId);
+  double ttc=1000; //time to collision
+  if (rxNodeId == txNodeId || senderMoving ==0) {
+    return ttc;
+  }
 
-	Vector posm_tx = txPosition->GetPosition(); // Get velocity
-	Vector vel = txPosition->GetVelocity(); // Get velocity
-	Ptr<Node> rxNode = GetNode (rxNodeId);
+  Vector posm_tx = txPosition->GetPosition(); // Get velocity
+  Vector vel = txPosition->GetVelocity(); // Get velocity
+  Ptr<Node> rxNode = GetNode (rxNodeId);
 
-	Ptr<MobilityModel> rxPosition = rxNode->GetObject<MobilityModel> ();
-	NS_ASSERT (rxPosition != 0);
-	Vector vel_rx = rxPosition->GetVelocity(); // Get velocity
-	Vector posm_rx = rxPosition->GetPosition(); // Get position
-	double rel_vel=(vel_rx.x-vel.x);
-	if (rel_vel ==0)
-		return ttc;
-	int receiverMoving = m_nodesMoving->at (rxNodeId);
-	if (receiverMoving == 1)
-	{
-		double distSq = (posm_rx.x-posm_tx.x);
-		if(std::abs(posm_rx.y-posm_tx.y)<2){
-			if (distSq>0){
-				ttc=  distSq/rel_vel;
-			}
-			else{
-				ttc=  -distSq/rel_vel;
-			}
-		}
-		if (ttc < 0){
-			ttc = 1000;
-		}
+  Ptr<MobilityModel> rxPosition = rxNode->GetObject<MobilityModel> ();
+  NS_ASSERT (rxPosition != 0);
+  Vector vel_rx = rxPosition->GetVelocity(); // Get velocity
+  Vector posm_rx = rxPosition->GetPosition(); // Get position
+  double rel_vel=(vel_rx.x-vel.x);
 
-	}
+  int receiverMoving = m_nodesMoving->at (rxNodeId);
+  if (rel_vel ==0 || receiverMoving != 1 || std::abs(posm_rx.y-posm_tx.y) >=2)
+  {
+    return ttc;
+  }
+  double distSq = (posm_rx.x-posm_tx.x);
+  if ((posm_rx.x < posm_tx.x && vel_rx.x > vel.x)
+  || (posm_rx.x > posm_tx.x && vel_rx.x < vel.x)) {
+    ttc = -distSq/rel_vel;
+  }
 
-	return ttc;
+  return ttc;
 }
 
 void BsmApplication::ReceiveWavePacket (Ptr<Socket> socket)
@@ -1408,7 +1355,7 @@ void BsmApplication::HandleAdaptivePriorityReceivedBsmPacket (Ptr<Node> txNode,
 	double priority;
 	//int priority_hp;
 	priority=prio; //GetAdaptivePriorityLevel(txNodeId);
-	double priority_threshold=5.0;
+	double priority_threshold=PRIO_MANUEVER_THRESHOLD;
 	double priority_rxtx;
 	priority_rxtx=GetAdaptivePriorityLevel(txNodeId,rxNodeId);
 	if(priority>=priority_threshold){
@@ -1437,7 +1384,7 @@ void BsmApplication::HandleAdaptivePriorityReceivedBsmPacket (Ptr<Node> txNode,
 			( (std::abs(posm_rx.y-posm_tx.y)<=m_lane_thres) && (posm_tx.x <= posm_rx.x) && (vel_tx.x > vel_rx.x)))
 	{
 		std::cout << "Time: " << Simulator::Now().GetMilliSeconds () << " txNode: " << txNodeId  << "(x=" << posm_tx.x << " y=" << posm_tx.y
-				<< "  vel=" << vel_tx.x << ") "
+				<< " vel=" << vel_tx.x << ") "
 				<< " rxNode: " << rxNodeId
 				<< "(x=" << posm_rx.x << " y=" << posm_rx.y  << " vel=" << vel_rx.x << ") "
 				<< " priority: "<< priority_rxtx << " ttc: " << temp_ttc << " MsgId: " << MsgId << " logx_recv" << std::endl;
@@ -1461,7 +1408,7 @@ void BsmApplication::HandleAdaptivePriorityReceivedBsmPacket (Ptr<Node> txNode,
 
 		}
 		else {
-			if (priority_rxtx >= PRIO_MANUEVER_THRESHOLD ){ // && !NodeInBetween(txNodeId,rxNodeId)) {
+			if (priority_rxtx >= PRIO_MANUEVER_THRESHOLD  && !NodeInBetween(txNodeId,rxNodeId)) {
 				manuevers++;
 				std::cout<< "Time: " << Simulator::Now().GetMilliSeconds ()  << " corrc occurred" << manuevers  << " txNode: " << txNodeId  << " rxNode: " << rxNodeId << " MsgId: " << MsgId << " ttc: " << temp_ttc<< " priorityrxtx: "
 						<< priority_rxtx << " priority: " << priority << " logx_recv" << std::endl ;
