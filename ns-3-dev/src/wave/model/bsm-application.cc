@@ -568,6 +568,8 @@ BsmApplication::GeneratePriorityWaveTraffic (Ptr<Socket> socket, uint32_t pktSiz
 	int loop_min_interval = min_interval;
 
 #ifdef ADAPTIVE_PRIO
+  min_interval=50;
+  loop_min_interval = min_interval;
 	int max_interval=1000;
 	int max_priority=5;
 	int min_priority=1;
